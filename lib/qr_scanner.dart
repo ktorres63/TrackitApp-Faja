@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:mobile_scanner/mobile_scanner.dart';
 import 'package:http/http.dart' as http;
 import 'dart:convert';
+import 'package:flutter_dotenv/flutter_dotenv.dart';
+
 
 class QrScannerPage extends StatefulWidget {
   final String nodeName;
@@ -22,7 +24,13 @@ class _QrScannerPageState extends State<QrScannerPage> {
 
   // Función para realizar el PUT request al endpoint
   Future<void> updatePackageStatus(String extractedNumber, int nodeId) async {
-    final url = Uri.parse('http://3.22.175.190:8000/ruta/api/$extractedNumber/$nodeId/');
+    final apiUrl = dotenv.env['API_URL'];
+    
+    if (apiUrl == null) {
+      print('Error: API_URL no está definido en el archivo .env');
+      return;
+    }
+    final url = Uri.parse('$apiUrl/ruta/api/$extractedNumber/$nodeId/');
     
     try {
       print('extracted-> $extractedNumber- nodoId->$nodeId/');
