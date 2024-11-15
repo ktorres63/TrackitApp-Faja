@@ -1,43 +1,21 @@
 import 'package:flutter/material.dart';
-import './qr_scanner.dart'; // Adjust the import path as needed
+import 'select_node.dart'; // Asegúrate de tener el import correcto de la página SelectNodePage
 
 void main() {
-  runApp(MyApp());
+  runApp(const MyApp());
 }
 
 class MyApp extends StatelessWidget {
+  const MyApp({super.key});
+
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
-      title: 'QR Scanner App',
+      title: 'Almacen-App',
       theme: ThemeData(
         primarySwatch: Colors.blue,
       ),
-      home: const MyHomePage(),
-    );
-  }
-}
-
-class MyHomePage extends StatelessWidget {
-  const MyHomePage({Key? key}) : super(key: key);
-
-  @override
-  Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: AppBar(
-        title: const Text('Home Page'),
-      ),
-      body: Center(
-        child: ElevatedButton(
-          child: const Text('Go to QR Scanner'),
-          onPressed: () {
-            Navigator.push(
-              context,
-              MaterialPageRoute(builder: (context) => const QrScannerPage()),
-            );
-          },
-        ),
-      ),
+      home: const SelectNodePage(),  // Directamente inicializamos SelectNodePage
     );
   }
 }

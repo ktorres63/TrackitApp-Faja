@@ -1,8 +1,17 @@
 import 'package:flutter/material.dart';
 import 'package:mobile_scanner/mobile_scanner.dart';
+import 'package:http/http.dart' as http;
+import 'dart:convert';
 
 class QrScannerPage extends StatefulWidget {
-  const QrScannerPage({Key? key}) : super(key: key);
+  final String nodeName;
+  final int nodeId;
+
+  const QrScannerPage({
+    super.key,
+    required this.nodeName,
+    required this.nodeId,
+  });
 
   @override
   State<QrScannerPage> createState() => _QrScannerPageState();
@@ -11,11 +20,63 @@ class QrScannerPage extends StatefulWidget {
 class _QrScannerPageState extends State<QrScannerPage> {
   String _scannedData = '';
 
+  // Función para realizar el PUT request al endpoint
+  Future<void> updatePackageStatus(String extractedNumber, int nodeId) async {
+    final url = Uri.parse('http://3.22.175.190:8000/ruta/api/$extractedNumber/$nodeId/');
+    
+    try {
+      print('extracted-> $extractedNumber- nodoId->$nodeId/');
+      final response = await http.put(
+        url,
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: json.encode({
+          'estado': 1,  // Cambiar estado a 1
+        }),
+      );
+
+      if (response.statusCode == 200) {
+        // Si la solicitud fue exitosa, puedes mostrar un mensaje o hacer algo más
+        print('Estado actualizado exitosamente');
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Estado actualizado exitosamente'),
+            backgroundColor: Colors.green,
+            behavior: SnackBarBehavior.floating,
+            duration: Duration(seconds: 3),
+          ),
+        );
+      } else {
+        // Si algo salió mal
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Error en la actualización: ${response.statusCode}'),
+            backgroundColor: Colors.red,
+            behavior: SnackBarBehavior.floating,
+            duration: const Duration(seconds: 3),
+          ),
+        );
+        print('Error en la actualización del estado: ${response.statusCode}');
+      }
+    } catch (error) {
+      print('Error de conexión: $error');
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Error de conexión'),
+          backgroundColor: Colors.red,
+          behavior: SnackBarBehavior.floating,
+          duration: Duration(seconds: 3),
+        ),
+      );
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: const Text('QR Scanner'),
+        title: Text('${widget.nodeName} QR Scanner'),
       ),
       body: SafeArea(
         child: Column(
@@ -25,11 +86,19 @@ class _QrScannerPageState extends State<QrScannerPage> {
               child: MobileScanner(
                 fit: BoxFit.contain,
                 onDetect: (capture) {
-                  if (!mounted) return;
-                  
-                  setState(() {
-                    _scannedData = capture.barcodes.first.rawValue ?? '';
-                  });
+                  final scannedValue = capture.barcodes.first.rawValue ?? '';
+                  if (scannedValue != _scannedData) {
+                    setState(() {
+                      _scannedData = scannedValue;
+                    });
+                    // Aquí puedes llamar a la función para actualizar el estado
+                    if (_scannedData.isNotEmpty) {
+                      // Suponiendo que el QR contiene el ID de paquete como 'id-paquete:5'
+                      final extractedNumber = _scannedData.split(':').last;  // Extraer el número
+                      updatePackageStatus(extractedNumber, widget.nodeId);  // Llamar a la API
+                    }
+                    
+                  }
                 },
               ),
             ),
