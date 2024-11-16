@@ -1,7 +1,11 @@
+import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'package:flutter/material.dart';
-import 'select_node.dart'; // Asegúrate de tener el import correcto de la página SelectNodePage
+import 'select_node.dart';
 
-void main() {
+
+Future<void> main() async {
+  // Asegúrate de cargar las variables de entorno antes de ejecutar la app
+  await dotenv.load(fileName: ".env");
   runApp(const MyApp());
 }
 

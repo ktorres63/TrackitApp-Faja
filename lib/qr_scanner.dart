@@ -1,9 +1,11 @@
+import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'package:flutter/material.dart';
 import 'package:mobile_scanner/mobile_scanner.dart';
 import 'package:http/http.dart' as http;
 import 'dart:convert';
-import 'package:flutter_dotenv/flutter_dotenv.dart';
+import 'dart:async'; // Para usar Future.delayed
 
+//FORMATO: id_paquete:9
 
 class QrScannerPage extends StatefulWidget {
   final String nodeName;
@@ -20,13 +22,17 @@ class QrScannerPage extends StatefulWidget {
 }
 
 class _QrScannerPageState extends State<QrScannerPage> {
-  String _scannedData = '';
+  String _scannedData = ''; 
+  bool _isProcessing = false; // Evita múltiples solicitudes al mismo tiempo
+
+
+
 
   // Función para realizar el PUT request al endpoint
   Future<void> updatePackageStatus(String extractedNumber, int nodeId) async {
-    final apiUrl = dotenv.env['API_URL'];
-    
-    if (apiUrl == null) {
+    String apiUrl = dotenv.env['API_URL']!;
+
+    if (apiUrl.isEmpty) {
       print('Error: API_URL no está definido en el archivo .env');
       return;
     }
@@ -67,7 +73,8 @@ class _QrScannerPageState extends State<QrScannerPage> {
         );
         print('Error en la actualización del estado: ${response.statusCode}');
       }
-    } catch (error) {
+    } 
+    catch (error) {
       print('Error de conexión: $error');
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
@@ -77,6 +84,14 @@ class _QrScannerPageState extends State<QrScannerPage> {
           duration: Duration(seconds: 3),
         ),
       );
+    }
+    finally{
+      // Permitir seguir escaneando
+      await Future.delayed(const Duration(seconds: 2)); // Breve pausa para evitar lecturas rápidas
+      setState(() {
+        _scannedData = '';
+        _isProcessing = false;
+      });
     }
   }
 
@@ -95,9 +110,10 @@ class _QrScannerPageState extends State<QrScannerPage> {
                 fit: BoxFit.contain,
                 onDetect: (capture) {
                   final scannedValue = capture.barcodes.first.rawValue ?? '';
-                  if (scannedValue != _scannedData) {
+                  if (!_isProcessing && scannedValue != _scannedData) {
                     setState(() {
                       _scannedData = scannedValue;
+                      _isProcessing = true; // Bloquea hasta completar la solicitud
                     });
                     // Aquí puedes llamar a la función para actualizar el estado
                     if (_scannedData.isNotEmpty) {
