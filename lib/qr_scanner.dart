@@ -3,9 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:mobile_scanner/mobile_scanner.dart';
 import 'package:http/http.dart' as http;
 import 'dart:convert';
-import 'dart:async'; // Para usar Future.delayed
-
-//FORMATO: id_paquete:9
+import 'dart:async';
 
 class QrScannerPage extends StatefulWidget {
   final String nodeName;
@@ -22,36 +20,41 @@ class QrScannerPage extends StatefulWidget {
 }
 
 class _QrScannerPageState extends State<QrScannerPage> {
-  String _scannedData = ''; 
-  bool _isProcessing = false; // Evita múltiples solicitudes al mismo tiempo
+  final Map<String, int> _nodes = {
+    'Tacna': 1,
+    'Arequipa': 2,
+    'Madre de Dios': 3,
+    'Ayacucho': 4,
+    'Ucayali': 5,
+    'Lima': 6,
+    'San Martin': 7,
+    'Tumbes': 8,
+    'Loreto': 9,
+  };
 
+  String _scannedData = '';
+  bool _isProcessing = false;
+  String? _finalNodeName;
 
-
-
-  // Función para realizar el PUT request al endpoint
-  Future<void> updatePackageStatus(String extractedNumber, int nodeId) async {
-    String apiUrl = dotenv.env['API_URL']!;
-
-    if (apiUrl.isEmpty) {
+  // Función para actualizar el estado del paquete
+  Future<void> updatePackageStatus(String extractedNumber) async {
+    final apiUrl = dotenv.env['API_URL'];
+    if (apiUrl == null || apiUrl.isEmpty) {
       print('Error: API_URL no está definido en el archivo .env');
       return;
     }
-    final url = Uri.parse('$apiUrl/ruta/api/$extractedNumber/$nodeId/');
-    
+
+    final url = Uri.parse('$apiUrl/ruta/api/$extractedNumber/${widget.nodeId}/');
+
     try {
-      print('extracted-> $extractedNumber- nodoId->$nodeId/');
+      print('Actualizando: paquete=$extractedNumber nodo=${widget.nodeId}');
       final response = await http.put(
         url,
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: json.encode({
-          'estado': 1,  // Cambiar estado a 1
-        }),
+        headers: {'Content-Type': 'application/json'},
+        body: json.encode({'estado': 2}),
       );
 
       if (response.statusCode == 200) {
-        // Si la solicitud fue exitosa, puedes mostrar un mensaje o hacer algo más
         print('Estado actualizado exitosamente');
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
@@ -61,8 +64,9 @@ class _QrScannerPageState extends State<QrScannerPage> {
             duration: Duration(seconds: 3),
           ),
         );
+        await fetchFinalNode(extractedNumber);
       } else {
-        // Si algo salió mal
+        print('Error en la actualización del estado: ${response.statusCode}');
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text('Error en la actualización: ${response.statusCode}'),
@@ -71,10 +75,8 @@ class _QrScannerPageState extends State<QrScannerPage> {
             duration: const Duration(seconds: 3),
           ),
         );
-        print('Error en la actualización del estado: ${response.statusCode}');
       }
-    } 
-    catch (error) {
+    } catch (error) {
       print('Error de conexión: $error');
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
@@ -84,14 +86,41 @@ class _QrScannerPageState extends State<QrScannerPage> {
           duration: Duration(seconds: 3),
         ),
       );
-    }
-    finally{
-      // Permitir seguir escaneando
-      await Future.delayed(const Duration(seconds: 2)); // Breve pausa para evitar lecturas rápidas
+    } finally {
+      await Future.delayed(const Duration(seconds: 2));
       setState(() {
         _scannedData = '';
         _isProcessing = false;
       });
+    }
+  }
+
+  // Función para obtener nodo_fin_id y asignar el nombre del nodo final
+  Future<void> fetchFinalNode(String extractedNumber) async {
+    final apiUrl = dotenv.env['API_URL'];
+    if (apiUrl == null || apiUrl.isEmpty) {
+      print('Error: API_URL no está definido en el archivo .env');
+      return;
+    }
+
+    final url = Uri.parse('$apiUrl/ruta/api/get/$extractedNumber/${widget.nodeId}/');
+
+    try {
+      final response = await http.get(url);
+
+      if (response.statusCode == 200) {
+        final data = json.decode(response.body);
+        final finalNodeId = data['nodo_fin_id'] as int?;
+        setState(() {
+          _finalNodeName = _nodes.entries
+              .firstWhere((entry) => entry.value == finalNodeId, orElse: () => const MapEntry('', 0))
+              .key;
+        });
+      } else {
+        print('Error al obtener nodo_fin_id: ${response.statusCode}');
+      }
+    } catch (error) {
+      print('Error de conexión al obtener nodo_fin_id: $error');
     }
   }
 
@@ -113,15 +142,12 @@ class _QrScannerPageState extends State<QrScannerPage> {
                   if (!_isProcessing && scannedValue != _scannedData) {
                     setState(() {
                       _scannedData = scannedValue;
-                      _isProcessing = true; // Bloquea hasta completar la solicitud
+                      _isProcessing = true;
                     });
-                    // Aquí puedes llamar a la función para actualizar el estado
                     if (_scannedData.isNotEmpty) {
-                      // Suponiendo que el QR contiene el ID de paquete como 'id-paquete:5'
-                      final extractedNumber = _scannedData.split(':').last;  // Extraer el número
-                      updatePackageStatus(extractedNumber, widget.nodeId);  // Llamar a la API
+                      final extractedNumber = _scannedData.split(':').last;
+                      updatePackageStatus(extractedNumber);
                     }
-                    
                   }
                 },
               ),
@@ -137,12 +163,19 @@ class _QrScannerPageState extends State<QrScannerPage> {
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
+                        // const Text(
+                        //   'Scanned Data:',
+                        //   style: TextStyle(fontWeight: FontWeight.bold),
+                        // ),
+                        // const SizedBox(height: 8),
+                        // Text(_scannedData),
+                        // const SizedBox(height: 16),
                         const Text(
-                          'Scanned Data:',
+                          'Se dirige a:',
                           style: TextStyle(fontWeight: FontWeight.bold),
                         ),
                         const SizedBox(height: 8),
-                        Text(_scannedData),
+                        Text(_finalNodeName ?? 'Esperando datos...'),
                       ],
                     ),
                   ),
